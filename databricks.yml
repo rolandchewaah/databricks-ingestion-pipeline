@@ -1,0 +1,50 @@
+bundle:
+  name: ingestion_pipeline
+
+workspace:
+  # Branch isolated deployments (optional but recommended)
+  root_path: /Shared/ingestion_pipeline/${bundle.target}/${env.BRANCH_SLUG}
+
+variables:
+  input_path:
+    default: "abfss://raw-data@mystorage.dfs.core.windows.net/uploads/"
+  schema_location:
+    default: "abfss://checkpoints@mystorage.dfs.core.windows.net/ingestion_job/schema/"
+  checkpoint_location:
+    default: "abfss://checkpoints@mystorage.dfs.core.windows.net/ingestion_job/checkpoint/"
+  target_table:
+    default: "main.default.raw_ingested_data"
+
+resources:
+  jobs:
+    ingestion_job:
+      name: "Daily Data Ingestion (${bundle.target}) - ${env.BRANCH_SLUG}"
+
+      tasks:
+        - task_key: run_ingestion
+          job_cluster_key: ingestion_cluster
+
+          # IMPORTANT: .py file must be python_task (not notebook_task)
+          python_task:
+            python_file: scripts/ingest_data.py
+
+          environment_variables:
+            INPUT_PATH: ${var.input_path}
+            SCHEMA_LOCATION: ${var.schema_location}
+            CHECKPOINT_LOCATION: ${var.checkpoint_location}
+            TARGET_TABLE: ${var.target_table}
+
+      job_clusters:
+        - job_cluster_key: ingestion_cluster
+          new_cluster:
+            spark_version: 14.3.x-scala2.12
+            node_type_id: Standard_DS3_v2
+            num_workers: 1
+            autotermination_minutes: 60
+
+targets:
+  dev:
+    mode: development
+
+  prod:
+    mode: production

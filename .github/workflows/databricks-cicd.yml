@@ -1,0 +1,45 @@
+name: Databricks CI/CD
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  deploy-dev:
+    runs-on: [self-hosted]   # <-- REQUIRED if workspace is private / blocked
+    env:
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST_DEV }}
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN_DEV }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute BRANCH_SLUG
+        shell: bash
+        run: |
+          BRANCH_NAME="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}"
+          BRANCH_SLUG="$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]' | sed 's#/#-#g' | sed 's#[^a-z0-9-]#-#g')"
+          echo "BRANCH_SLUG=$BRANCH_SLUG" >> $GITHUB_ENV
+
+      - name: Install Databricks CLI
+        shell: bash
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+          databricks --version
+
+      - name: Auth check
+        shell: bash
+        run: databricks auth env
+
+      - name: Validate bundle
+        shell: bash
+        run: databricks bundle validate -t dev
+
+      - name: Deploy bundle
+        shell: bash
+        run: databricks bundle deploy -t dev
+
+      - name: Smoke test run
+        shell: bash
+        run: databricks bundle run ingestion_job -t dev
