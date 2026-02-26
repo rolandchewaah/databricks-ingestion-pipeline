@@ -2,8 +2,11 @@ name: Databricks CI/CD
 
 on:
   push:
-    branches: ["**"]
+    branches:
+      - main
   pull_request:
+    branches:
+      - main  # This triggers when a PR is CREATED AGAINST the main branch
 
 jobs:
   deploy-dev:
