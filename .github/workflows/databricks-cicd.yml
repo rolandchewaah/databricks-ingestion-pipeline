@@ -1,0 +1,25 @@
+name: Databricks CI/CD
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main  # This triggers when a PR is CREATED AGAINST the main branch
+
+jobs:
+  deploy:
+    runs-on: [self-hosted]
+    env:
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST_DEV }}
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN_DEV }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+      - run: |
+          echo "BRANCH_SLUG=${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}" | tr '[:upper:]' '[:lower:]' | sed 's#/#-#g' >> $GITHUB_ENV
+      - run: databricks auth env
+      - run: databricks bundle validate -t dev
+      - run: databricks bundle deploy -t dev
+      - run: databricks bundle run ingestion_job -t dev
